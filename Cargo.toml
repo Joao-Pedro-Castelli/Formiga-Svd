@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+ff-decode = "0.14.4"
+ff-encode = { version = "0.14.4", features = ["gpl"] }
+ff-probe = "0.14.4"
