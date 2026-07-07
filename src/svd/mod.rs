@@ -1,4 +1,4 @@
-use nalgebra::{SMatrix, SVector};
+use nalgebra::{Const, DVector, Dyn, Matrix, SMatrix, SVector, VecStorage};
 
 fn max_lower_element<const R: usize>(a_mat: &SMatrix<f64, R, R>) -> (f64, (usize, usize)) {
     let mut max = a_mat[(1, 0)].abs();
@@ -33,7 +33,7 @@ fn calculate_trigonometric<const R: usize>(
     (cosi, sino)
 }
 
-fn jacobi_decomposition<const R: usize>(
+pub fn jacobi_decomposition<const R: usize>(
     a_mat: &SMatrix<f64, R, R>,
     tol: f64,
     kmax: usize,
@@ -62,6 +62,56 @@ fn jacobi_decomposition<const R: usize>(
     }
 
     (mat_ak.diagonal(), mat_v)
+}
+
+fn calculate_left_singv<const S: usize, const R: usize>(
+    a_mat: &SMatrix<f64, S, R>,
+    sing_values: &DVector<f64>,
+    v_mat: &Matrix<f64, Const<R>, Dyn, VecStorage<f64, Const<R>, Dyn>>,
+) -> Matrix<f64, Const<S>, Dyn, VecStorage<f64, Const<S>, Dyn>> {
+    let mut column_vec = Vec::with_capacity(v_mat.nrows());
+    for i in 0..sing_values.ncols() {
+        column_vec.push((a_mat * v_mat.column(i)) / sing_values[i]);
+    }
+    let u_mat = Matrix::<f64, Const<S>, Dyn, _>::from_columns(&column_vec);
+    return u_mat;
+}
+
+pub fn svd_decomp<const S: usize, const R: usize>(
+    a_mat: &SMatrix<f64, S, R>,
+    min_value: f64,
+) -> (
+    Matrix<f64, Const<S>, Dyn, VecStorage<f64, Const<S>, Dyn>>,
+    DVector<f64>,
+    Matrix<f64, Const<R>, Dyn, VecStorage<f64, Const<R>, Dyn>>,
+) {
+    let at_a = a_mat.transpose() * a_mat;
+
+    let (eig_vals, eig_vecs) = jacobi_decomposition::<R>(&at_a, 1e-12, 10000);
+    let mut sing_pairs = eig_vals
+        .data
+        .as_slice()
+        .iter()
+        .map(|a| a.sqrt())
+        .zip(eig_vecs.column_iter().map(|a| a.clone_owned()))
+        .filter(|pair| pair.0 > min_value)
+        .collect::<Vec<(f64, SMatrix<f64, R, 1>)>>();
+
+    sing_pairs.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+
+    let sing_values =
+        DVector::from_iterator(sing_pairs.len(), sing_pairs.iter().map(|pair| pair.0));
+
+    let compact_v = Matrix::<f64, Const<R>, Dyn, _>::from_columns(
+        &sing_pairs
+            .iter()
+            .map(|pair| pair.1)
+            .collect::<Vec<Matrix<f64, Const<R>, Const<1>, _>>>(),
+    );
+
+    let compact_u = calculate_left_singv(&a_mat, &sing_values, &compact_v);
+
+    (compact_u, sing_values, compact_v)
 }
 
 #[cfg(test)]
