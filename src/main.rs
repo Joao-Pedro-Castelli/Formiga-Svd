@@ -1,12 +1,23 @@
-use nalgebra::Matrix2x3;
+use std::path::PathBuf;
 
-mod svd;
+use clap::Parser;
 
-fn main() {
-    let a_mat = Matrix2x3::new(12.2, 84.3, 48.5, 64.7, 59.2, 46.4);
-    let (u, s, v) = svd::svd_decomp(&a_mat, 0.05);
-    println!("U = {}", u);
-    println!("Sigma = {}", s);
-    println!("V = {}", v);
-    return ();
+use avio::{PixelFormat, VideoDecoder};
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Video file to be used as input
+    filename: PathBuf,
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+    let mut decoder = VideoDecoder::open(args.filename)
+        .output_format(PixelFormat::Yuv420p)
+        .build()?;
+
+    while let Ok(Some(frame)) = decoder.decode_one() {}
+
+    Ok(())
 }

@@ -69,8 +69,8 @@ fn calculate_left_singv<const S: usize, const R: usize>(
     sing_values: &DVector<f64>,
     v_mat: &Matrix<f64, Const<R>, Dyn, VecStorage<f64, Const<R>, Dyn>>,
 ) -> Matrix<f64, Const<S>, Dyn, VecStorage<f64, Const<S>, Dyn>> {
-    let mut column_vec = Vec::with_capacity(v_mat.nrows());
-    for i in 0..sing_values.ncols() {
+    let mut column_vec = Vec::with_capacity(sing_values.nrows());
+    for i in 0..sing_values.nrows() {
         column_vec.push((a_mat * v_mat.column(i)) / sing_values[i]);
     }
     let u_mat = Matrix::<f64, Const<S>, Dyn, _>::from_columns(&column_vec);
@@ -117,7 +117,7 @@ pub fn svd_decomp<const S: usize, const R: usize>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::{Matrix3, UniformNorm, Vector3};
+    use nalgebra::{Matrix2x1, Matrix2x3, Matrix3, UniformNorm, Vector3};
 
     #[test]
     fn simple_max() {
@@ -129,7 +129,7 @@ mod tests {
     }
 
     #[test]
-    fn test_svd() {
+    fn test_jacobi() {
         let mat_a = Matrix3::new(94., 42., 65., 42., 54., 23., 65., 23., 79.);
         let mat_b = Matrix3::new(57., 93., 26., 93., 78., 15., 26., 15., 62.);
 
@@ -152,5 +152,17 @@ mod tests {
             .as_mut_slice()
             .sort_by(|a, b| a.partial_cmp(b).unwrap());
         assert!((eig_value_b - calc_eigv_b).apply_norm(&UniformNorm) < 1e-3);
+    }
+
+    #[test]
+    fn test_svd() {
+        let mat_a = Matrix2x3::new(12.2, 84.3, 48.5, 64.7, 59.2, 46.4);
+        let (u, s, v) = svd_decomp(&mat_a, 0.0001);
+        assert_eq!(u.shape(), (2, 2));
+        assert_eq!(s.shape(), (2, 1));
+        assert_eq!(v.shape(), (3, 2));
+
+        let sing_values = Matrix2x1::new(133.255, 41.1639);
+        assert!((sing_values - s).apply_norm(&UniformNorm) < 1e-3);
     }
 }
